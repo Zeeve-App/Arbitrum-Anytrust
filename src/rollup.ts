@@ -75,7 +75,7 @@ export async function rollup() {
       DataAvailabilityCommittee: true
     }
   });
-
+if (process.env.NATIVE_TOKEN!=='0x0000000000000000000000000000000000000000') {
   const allowanceParams = {
     nativeToken: process.env.NATIVE_TOKEN! as `0x${string}`,
     account: deployer.address,
@@ -105,23 +105,29 @@ export async function rollup() {
       }`,
     );
   }
+}
+const createRollupParams:any = {
+  params: {
+    config: createRollupPrepareConfig({
+      chainId: BigInt(chainId),
+      owner: deployer.address,
+      chainConfig
+    }),
+    batchPoster,
+    validators: [validator],
+  },
+  account: deployer.address,
+  publicClient: parentChainPublicClient
+}
 
-  // prepare the transaction for deploying the core contracts
-  const request = await createRollupPrepareTransactionRequest({
-    params: {
-      config: createRollupPrepareConfig({
-        chainId: BigInt(chainId),
-        owner: deployer.address,
-        chainConfig
-      }),
-      batchPoster,
-      validators: [validator],
-      nativeToken: process.env.NATIVE_TOKEN! as `0x${string}`, 
-      deployFactoriesToL2: true
-    },
-    account: deployer.address,
-    publicClient: parentChainPublicClient
-  });
+if(process.env.NATIVE_TOKEN !== '0x0000000000000000000000000000000000000000'){
+  createRollupParams.params["nativeToken"] = process.env.NATIVE_TOKEN as `0x${string}`
+  createRollupParams.params.deployFactoriesToL2 = true
+}
+
+
+// prepare the transaction for deploying the core contracts
+const request = await createRollupPrepareTransactionRequest(createRollupParams);
 
   // sign and send the transaction
   const txHash = await parentChainPublicClient.sendRawTransaction({
@@ -148,4 +154,3 @@ function findRollupCreatedEventLog(txReceipt: CreateRollupTransactionReceipt) {
 function decodeRollupCreatedEventLog(eventLog: any) {
   throw new Error('Function not implemented.');
 }
-
