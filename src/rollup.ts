@@ -43,8 +43,15 @@ const batchPosterPrivateKey = withFallbackPrivateKey(
   process.env.BATCH_POSTER_PRIVATE_KEY
 );
 const batchPoster = privateKeyToAccount(batchPosterPrivateKey).address;
+/** if chain type is not provided it will deploy anytrust chain */
+const chainType: 'anytrust' | 'rollups' =
+  process.env.CHAIN_TYPE === 'rollups' ? 'rollups' : 'anytrust';
+
+/** if chain type is rollup the native token must be ETH which is 0x0 */
 const nativeToken =
-  process.env.NATIVE_TOKEN || '0x0000000000000000000000000000000000000000';
+  chainType === 'rollups'
+    ? process.env.NATIVE_TOKEN || '0x0000000000000000000000000000000000000000'
+    : '0x0000000000000000000000000000000000000000';
 
 // load or generate a random validator account
 const validatorPrivateKey = withFallbackPrivateKey(
@@ -73,7 +80,7 @@ export async function rollup() {
     chainId,
     arbitrum: {
       InitialChainOwner: deployer.address,
-      DataAvailabilityCommittee: true
+      DataAvailabilityCommittee: chainType === 'anytrust'
     }
   });
   if (nativeToken !== '0x0000000000000000000000000000000000000000') {
