@@ -49,7 +49,7 @@ const chainType: 'anytrust' | 'rollups' =
 
 /** if chain type is rollup the native token must be ETH which is 0x0 */
 const nativeToken =
-  chainType === 'rollups'
+  chainType === 'anytrust'
     ? process.env.NATIVE_TOKEN || '0x0000000000000000000000000000000000000000'
     : '0x0000000000000000000000000000000000000000';
 
