@@ -9,7 +9,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rollup = exports.sanitizePrivateKey = void 0;
+exports.sanitizePrivateKey = sanitizePrivateKey;
+exports.rollup = rollup;
 const viem_1 = require("viem");
 const accounts_1 = require("viem/accounts");
 const chains_1 = require("viem/chains");
@@ -21,7 +22,6 @@ function sanitizePrivateKey(privateKey) {
     }
     return privateKey;
 }
-exports.sanitizePrivateKey = sanitizePrivateKey;
 function withFallbackPrivateKey(privateKey) {
     if (typeof privateKey === 'undefined') {
         return (0, accounts_1.generatePrivateKey)();
@@ -38,6 +38,7 @@ if (typeof process.env.DEPLOYER_PRIVATE_KEY === 'undefined') {
 // load or generate a random batch poster account
 const batchPosterPrivateKey = withFallbackPrivateKey(process.env.BATCH_POSTER_PRIVATE_KEY);
 const batchPoster = (0, accounts_1.privateKeyToAccount)(batchPosterPrivateKey).address;
+const nativeToken = process.env.NATIVE_TOKEN || '0x0000000000000000000000000000000000000000';
 // load or generate a random validator account
 const validatorPrivateKey = withFallbackPrivateKey(process.env.VALIDATOR_PRIVATE_KEY);
 const validator = (0, accounts_1.privateKeyToAccount)(validatorPrivateKey).address;
@@ -61,39 +62,43 @@ function rollup() {
                 DataAvailabilityCommittee: true
             }
         });
-        const allowanceParams = {
-            nativeToken: process.env.NATIVE_TOKEN,
-            account: deployer.address,
-            publicClient: parentChainPublicClient,
-        };
-        if (!(yield (0, orbit_sdk_1.createRollupEnoughCustomFeeTokenAllowance)(allowanceParams))) {
-            const approvalTxRequest = yield (0, orbit_sdk_1.createRollupPrepareCustomFeeTokenApprovalTransactionRequest)(allowanceParams);
-            // sign and send the transaction
-            const approvalTxHash = yield parentChainPublicClient.sendRawTransaction({
-                serializedTransaction: yield deployer.signTransaction(approvalTxRequest),
-            });
-            // get the transaction receipt after waiting for the transaction to complete
-            const approvalTxReceipt = (0, orbit_sdk_1.createRollupPrepareTransactionReceipt)(yield parentChainPublicClient.waitForTransactionReceipt({
-                hash: approvalTxHash,
-            }));
-            console.log(`Tokens approved in ${getBlockExplorerUrl(parentChain)}/tx/${approvalTxReceipt.transactionHash}`);
+        if (nativeToken !== '0x0000000000000000000000000000000000000000') {
+            const allowanceParams = {
+                nativeToken: nativeToken,
+                account: deployer.address,
+                publicClient: parentChainPublicClient
+            };
+            if (!(yield (0, orbit_sdk_1.createRollupEnoughCustomFeeTokenAllowance)(allowanceParams))) {
+                const approvalTxRequest = yield (0, orbit_sdk_1.createRollupPrepareCustomFeeTokenApprovalTransactionRequest)(allowanceParams);
+                // sign and send the transaction
+                const approvalTxHash = yield parentChainPublicClient.sendRawTransaction({
+                    serializedTransaction: yield deployer.signTransaction(approvalTxRequest)
+                });
+                // get the transaction receipt after waiting for the transaction to complete
+                const approvalTxReceipt = (0, orbit_sdk_1.createRollupPrepareTransactionReceipt)(yield parentChainPublicClient.waitForTransactionReceipt({
+                    hash: approvalTxHash
+                }));
+                console.log(`Tokens approved in ${getBlockExplorerUrl(parentChain)}/tx/${approvalTxReceipt.transactionHash}`);
+            }
         }
-        // prepare the transaction for deploying the core contracts
-        const request = yield (0, orbit_sdk_1.createRollupPrepareTransactionRequest)({
+        const createRollupParams = {
             params: {
-                config: (0, orbit_sdk_1.createRollupPrepareConfig)({
+                config: (0, orbit_sdk_1.createRollupPrepareDeploymentParamsConfig)(parentChainPublicClient, {
                     chainId: BigInt(chainId),
                     owner: deployer.address,
                     chainConfig
                 }),
-                batchPoster,
-                validators: [validator],
-                nativeToken: process.env.NATIVE_TOKEN,
-                deployFactoriesToL2: true
+                batchPosters: [batchPoster],
+                validators: [validator]
             },
             account: deployer.address,
             publicClient: parentChainPublicClient
-        });
+        };
+        if (nativeToken !== '0x0000000000000000000000000000000000000000') {
+            createRollupParams.params['nativeToken'] = nativeToken;
+        }
+        // prepare the transaction for deploying the core contracts
+        const request = yield (0, orbit_sdk_1.createRollupPrepareTransactionRequest)(createRollupParams);
         // sign and send the transaction
         const txHash = yield parentChainPublicClient.sendRawTransaction({
             serializedTransaction: yield deployer.signTransaction(request)
@@ -103,11 +108,4 @@ function rollup() {
         console.log(`Deployed in ${getBlockExplorerUrl(parentChain)}/tx/${txReceipt.transactionHash}`);
         return txReceipt.transactionHash;
     });
-}
-exports.rollup = rollup;
-function findRollupCreatedEventLog(txReceipt) {
-    throw new Error('Function not implemented.');
-}
-function decodeRollupCreatedEventLog(eventLog) {
-    throw new Error('Function not implemented.');
 }

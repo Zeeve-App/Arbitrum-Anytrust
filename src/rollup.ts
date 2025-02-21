@@ -1,17 +1,16 @@
-import { Chain, createPublicClient, decodeEventLog, http } from 'viem';
+import { Chain, createPublicClient, http } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { arbitrumSepolia } from 'viem/chains';
 import {
-  createRollupPrepareConfig,
   prepareChainConfig,
   createRollupPrepareTransactionRequest,
   createRollupPrepareTransactionReceipt,
-  CreateRollupTransactionReceipt,
   createRollupEnoughCustomFeeTokenAllowance,
-  createRollupPrepareCustomFeeTokenApprovalTransactionRequest
+  createRollupPrepareCustomFeeTokenApprovalTransactionRequest,
+  createRollupPrepareDeploymentParamsConfig,
+  CreateRollupPrepareTransactionRequestParams
 } from '@arbitrum/orbit-sdk';
 import { generateChainId } from '@arbitrum/orbit-sdk/utils';
-import { truncateSync } from 'fs';
 
 export function sanitizePrivateKey(privateKey: string): `0x${string}` {
   if (!privateKey.startsWith('0x')) {
@@ -44,6 +43,8 @@ const batchPosterPrivateKey = withFallbackPrivateKey(
   process.env.BATCH_POSTER_PRIVATE_KEY
 );
 const batchPoster = privateKeyToAccount(batchPosterPrivateKey).address;
+const nativeToken =
+  process.env.NATIVE_TOKEN || '0x0000000000000000000000000000000000000000';
 
 // load or generate a random validator account
 const validatorPrivateKey = withFallbackPrivateKey(
@@ -75,59 +76,63 @@ export async function rollup() {
       DataAvailabilityCommittee: true
     }
   });
-if (process.env.NATIVE_TOKEN!=='0x0000000000000000000000000000000000000000') {
-  const allowanceParams = {
-    nativeToken: process.env.NATIVE_TOKEN! as `0x${string}`,
-    account: deployer.address,
-    publicClient: parentChainPublicClient,
-  };
+  if (nativeToken !== '0x0000000000000000000000000000000000000000') {
+    const allowanceParams = {
+      nativeToken: nativeToken! as `0x${string}`,
+      account: deployer.address,
+      publicClient: parentChainPublicClient
+    };
 
-  if (!(await createRollupEnoughCustomFeeTokenAllowance(allowanceParams))) {
-    const approvalTxRequest = await createRollupPrepareCustomFeeTokenApprovalTransactionRequest(
-      allowanceParams,
-    );
+    if (!(await createRollupEnoughCustomFeeTokenAllowance(allowanceParams))) {
+      const approvalTxRequest =
+        await createRollupPrepareCustomFeeTokenApprovalTransactionRequest(
+          allowanceParams
+        );
 
-    // sign and send the transaction
-    const approvalTxHash = await parentChainPublicClient.sendRawTransaction({
-      serializedTransaction: await deployer.signTransaction(approvalTxRequest),
-    });
+      // sign and send the transaction
+      const approvalTxHash = await parentChainPublicClient.sendRawTransaction({
+        serializedTransaction: await deployer.signTransaction(approvalTxRequest)
+      });
 
-    // get the transaction receipt after waiting for the transaction to complete
-    const approvalTxReceipt = createRollupPrepareTransactionReceipt(
-      await parentChainPublicClient.waitForTransactionReceipt({
-        hash: approvalTxHash,
-      }),
-    );
+      // get the transaction receipt after waiting for the transaction to complete
+      const approvalTxReceipt = createRollupPrepareTransactionReceipt(
+        await parentChainPublicClient.waitForTransactionReceipt({
+          hash: approvalTxHash
+        })
+      );
 
-    console.log(
-      `Tokens approved in ${getBlockExplorerUrl(parentChain)}/tx/${
-        approvalTxReceipt.transactionHash
-      }`,
-    );
+      console.log(
+        `Tokens approved in ${getBlockExplorerUrl(parentChain)}/tx/${
+          approvalTxReceipt.transactionHash
+        }`
+      );
+    }
   }
-}
-const createRollupParams:any = {
-  params: {
-    config: createRollupPrepareConfig({
-      chainId: BigInt(chainId),
-      owner: deployer.address,
-      chainConfig
-    }),
-    batchPoster,
-    validators: [validator],
-  },
-  account: deployer.address,
-  publicClient: parentChainPublicClient
-}
+  const createRollupParams: CreateRollupPrepareTransactionRequestParams<Chain> =
+    {
+      params: {
+        config: createRollupPrepareDeploymentParamsConfig(
+          parentChainPublicClient,
+          {
+            chainId: BigInt(chainId),
+            owner: deployer.address,
+            chainConfig
+          }
+        ),
+        batchPosters: [batchPoster],
+        validators: [validator]
+      },
+      account: deployer.address,
+      publicClient: parentChainPublicClient
+    };
 
-if(process.env.NATIVE_TOKEN !== '0x0000000000000000000000000000000000000000'){
-  createRollupParams.params["nativeToken"] = process.env.NATIVE_TOKEN as `0x${string}`
-  createRollupParams.params.deployFactoriesToL2 = true
-}
+  if (nativeToken !== '0x0000000000000000000000000000000000000000') {
+    createRollupParams.params['nativeToken'] = nativeToken as `0x${string}`;
+  }
 
-
-// prepare the transaction for deploying the core contracts
-const request = await createRollupPrepareTransactionRequest(createRollupParams);
+  // prepare the transaction for deploying the core contracts
+  const request =
+    await createRollupPrepareTransactionRequest(createRollupParams);
 
   // sign and send the transaction
   const txHash = await parentChainPublicClient.sendRawTransaction({
@@ -146,11 +151,4 @@ const request = await createRollupPrepareTransactionRequest(createRollupParams);
   );
 
   return txReceipt.transactionHash;
-}
-function findRollupCreatedEventLog(txReceipt: CreateRollupTransactionReceipt) {
-  throw new Error('Function not implemented.');
-}
-
-function decodeRollupCreatedEventLog(eventLog: any) {
-  throw new Error('Function not implemented.');
 }

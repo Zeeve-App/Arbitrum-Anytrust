@@ -1,25 +1,27 @@
-import { Chain, Hex, createPublicClient, http } from "viem";
-import { arbitrumSepolia } from "viem/chains";
+import { Chain, Hex, createPublicClient, http } from 'viem';
+import { arbitrumSepolia } from 'viem/chains';
 import {
   ChainConfig,
   createRollupPrepareTransaction,
   createRollupPrepareTransactionReceipt,
-  prepareNodeConfig,
-} from "@arbitrum/orbit-sdk";
+  prepareNodeConfig
+} from '@arbitrum/orbit-sdk';
 
-import { writeFile } from "fs/promises";
-import { privateKeyToAccount } from "viem/accounts";
-import { sanitizePrivateKey } from "./rollup";
+import { writeFile } from 'fs/promises';
+import { privateKeyToAccount } from 'viem/accounts';
+import { sanitizePrivateKey } from './rollup';
+
+const l2Rpc = process.env.L2_RPC || 'https://sepolia-rollup.arbitrum.io/rpc';
 
 function getRpcUrl(chain: Chain) {
-  return chain.rpcUrls.default.http[0];
+  return l2Rpc || chain.rpcUrls.default.http[0];
 }
 
 // set the parent chain and create a public client for it
 const parentChain = arbitrumSepolia;
 const parentChainPublicClient = createPublicClient({
   chain: parentChain,
-  transport: http(),
+  transport: http()
 });
 
 export async function generateConfig(txHash: `0x${string}`) {
@@ -49,22 +51,22 @@ export async function generateConfig(txHash: `0x${string}`) {
       batchPosterPrivateKey: process.env.BATCH_POSTER_PRIVATE_KEY!,
       validatorPrivateKey: process.env.VALIDATOR_PRIVATE_KEY!,
       parentChainId: parentChain.id,
-      parentChainRpcUrl: getRpcUrl(parentChain),
+      parentChainRpcUrl: getRpcUrl(parentChain)
     });
 
-    await writeFile("node-config.json", JSON.stringify(nodeConfig, null, 2));
-    console.log(`Node config written to "node-config.json"`);
+    await writeFile('nodeConfig.json', JSON.stringify(nodeConfig, null, 2));
+    console.log(`Node config written to "nodeConfig.json"`);
 
     // prepare the l3 config
 
     const deployerAddress = privateKeyToAccount(
-    sanitizePrivateKey(process.env.DEPLOYER_PRIVATE_KEY!)
+      sanitizePrivateKey(process.env.DEPLOYER_PRIVATE_KEY!)
     ).address;
     const stakerAddress = privateKeyToAccount(
-    sanitizePrivateKey(process.env.VALIDATOR_PRIVATE_KEY!)
+      sanitizePrivateKey(process.env.VALIDATOR_PRIVATE_KEY!)
     ).address;
     const batchPosterAddress = privateKeyToAccount(
-    sanitizePrivateKey(process.env.BATCH_POSTER_PRIVATE_KEY!)
+      sanitizePrivateKey(process.env.BATCH_POSTER_PRIVATE_KEY!)
     ).address;
 
     const l3Config = {
@@ -77,7 +79,7 @@ export async function generateConfig(txHash: `0x${string}`) {
       chainName: process.env.CHAIN_NAME!,
       minL2BaseFee: 100000000,
       parentChainId: parentChain.id,
-      "parent-chain-node-url": "https://sepolia-rollup.arbitrum.io/rpc",
+      'parent-chain-node-url': l2Rpc,
       utils: coreContracts.validatorUtils,
       rollup: coreContracts.rollup,
       inbox: coreContracts.inbox,
@@ -91,16 +93,18 @@ export async function generateConfig(txHash: `0x${string}`) {
       upgradeExecutor: coreContracts.upgradeExecutor,
       validatorUtils: coreContracts.validatorUtils,
       validatorWalletCreator: coreContracts.validatorWalletCreator,
-      deployedAtBlockNumber: txReceipt.blockNumber,
+      deployedAtBlockNumber: txReceipt.blockNumber
     };
 
     // Convert BigInt to string before serialization
-    const serializedObj = JSON.stringify(l3Config, (key, value) =>
-      typeof value === "bigint" ? value.toString() : value
+    const serializedObj = JSON.stringify(
+      l3Config,
+      (key, value) => (typeof value === 'bigint' ? value.toString() : value),
+      4
     );
 
-    await writeFile("l3-config.json", serializedObj);
-    console.log(`Node config written to "l3-config.json"`);
+    await writeFile('orbitSetupScriptConfig.json', serializedObj);
+    console.log(`Node config written to "orbitSetupScriptConfig.json"`);
   } catch (err: any) {
     console.log(err);
   }
