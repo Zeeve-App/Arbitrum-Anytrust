@@ -1,15 +1,16 @@
-import { Chain, Hex, createPublicClient, http } from 'viem';
+import { Chain, Hex, createPublicClient, defineChain, http } from 'viem';
 import { arbitrumSepolia } from 'viem/chains';
 import {
   ChainConfig,
   createRollupPrepareTransaction,
   createRollupPrepareTransactionReceipt,
-  prepareNodeConfig
+  prepareNodeConfig,
+  registerCustomParentChain
 } from '@arbitrum/orbit-sdk';
 
 import { writeFile } from 'fs/promises';
 import { privateKeyToAccount } from 'viem/accounts';
-import { sanitizePrivateKey } from './rollup';
+import { parentChain, sanitizePrivateKey } from './rollup';
 
 const l2Rpc = process.env.L2_RPC || 'https://sepolia-rollup.arbitrum.io/rpc';
 
@@ -17,10 +18,8 @@ function getRpcUrl(chain: Chain) {
   return l2Rpc || chain.rpcUrls.default.http[0];
 }
 
-// set the parent chain and create a public client for it
-const parentChain = arbitrumSepolia;
 const parentChainPublicClient = createPublicClient({
-  chain: parentChain,
+  chain: defineChain(parentChain),
   transport: http()
 });
 
@@ -43,6 +42,8 @@ export async function generateConfig(txHash: `0x${string}`) {
     // get the core contracts from the transaction receipt
     const coreContracts = txReceipt.getCoreContracts();
 
+    registerCustomParentChain(parentChain);
+
     // prepare the node config
     const nodeConfig = prepareNodeConfig({
       chainName: process.env.CHAIN_NAME!,
@@ -50,8 +51,9 @@ export async function generateConfig(txHash: `0x${string}`) {
       coreContracts,
       batchPosterPrivateKey: process.env.BATCH_POSTER_PRIVATE_KEY!,
       validatorPrivateKey: process.env.VALIDATOR_PRIVATE_KEY!,
-      parentChainId: parentChain.id,
-      parentChainRpcUrl: getRpcUrl(parentChain)
+      parentChainId: parentChain.id as any,
+      parentChainRpcUrl: getRpcUrl(parentChain),
+      parentChainIsArbitrum:false,
     });
 
     await writeFile('nodeConfig.json', JSON.stringify(nodeConfig, null, 2));

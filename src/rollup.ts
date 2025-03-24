@@ -1,4 +1,4 @@
-import { Chain, createPublicClient, http } from 'viem';
+import { Chain, ChainContract, createPublicClient, defineChain, http } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { arbitrumSepolia } from 'viem/chains';
 import {
@@ -8,7 +8,8 @@ import {
   createRollupEnoughCustomFeeTokenAllowance,
   createRollupPrepareCustomFeeTokenApprovalTransactionRequest,
   createRollupPrepareDeploymentParamsConfig,
-  CreateRollupPrepareTransactionRequestParams
+  CreateRollupPrepareTransactionRequestParams,
+  registerCustomParentChain
 } from '@arbitrum/orbit-sdk';
 import { generateChainId } from '@arbitrum/orbit-sdk/utils';
 
@@ -60,9 +61,52 @@ const validatorPrivateKey = withFallbackPrivateKey(
 const validator = privateKeyToAccount(validatorPrivateKey).address;
 
 // set the parent chain and create a public client for it
-const parentChain = arbitrumSepolia;
+export const parentChain = {
+  id: 80069,
+  name: 'Berachain Sepolia',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'BERA',
+    symbol: 'BERA'
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://bepolia.rpc.berachain.com/']
+    },
+    public: {
+      http: ['https://bepolia.rpc.berachain.com/']
+    }
+  },
+  network: 'Frequency',
+  blockExplorers: {
+    etherscan: {
+      name: 'Berachain Bepolia Explorer',
+      url: 'https://bepolia.beratrail.io/'
+    },
+    default: {
+      name: 'Berachain Bepolia Explorer',
+      url: 'https://bepolia.beratrail.io/'
+    }
+  },
+  contracts: {
+    rollupCreator: {
+      address: '0x7a37383B8a79c434efE8E8dA113401bE37227A7c' as `0x{string}`
+    },
+    tokenBridgeCreator: {
+      address: '0xAB50bd1C733a3c5F9897bC4dDbDfC5Ff06fc6981' as `0x{string}`
+    }
+  }
+} as Chain & {
+  contracts: {
+    rollupCreator: ChainContract;
+    tokenBridgeCreator: ChainContract;
+  };
+};
+
+registerCustomParentChain(parentChain);
+
 const parentChainPublicClient = createPublicClient({
-  chain: parentChain,
+  chain: defineChain(parentChain),
   transport: http()
 });
 
@@ -123,11 +167,19 @@ export async function rollup() {
           {
             chainId: BigInt(chainId),
             owner: deployer.address,
-            chainConfig
+            chainConfig,
+            confirmPeriodBlocks: BigInt(1),
+            sequencerInboxMaxTimeVariation: {
+              delayBlocks: BigInt(100),
+              futureBlocks: BigInt(100),
+              delaySeconds: BigInt(3600),
+              futureSeconds: BigInt(3600)
+            }
           }
         ),
         batchPosters: [batchPoster],
-        validators: [validator]
+        validators: [validator],
+        maxDataSize: BigInt(117964),
       },
       account: deployer.address,
       publicClient: parentChainPublicClient

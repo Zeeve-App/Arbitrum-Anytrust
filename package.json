@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@arbitrum/orbit-sdk": "0.21.3",
+    "@arbitrum/orbit-sdk": "0.21.5",
     "@types/dotenv": "^8.2.0",
     "dotenv": "^16.3.1",
     "readline-sync": "^1.4.10",
