@@ -117,7 +117,7 @@ const deployer = privateKeyToAccount(
 
 export async function rollup() {
   // generate a random chain id
-  const chainId = generateChainId();
+  const chainId = Number(process.env.CHAIN_ID) || generateChainId();
 
   // create the chain config
   const chainConfig = prepareChainConfig({
