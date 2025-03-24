@@ -93,7 +93,7 @@ export const parentChain = {
       address: '0x7a37383B8a79c434efE8E8dA113401bE37227A7c' as `0x{string}`
     },
     tokenBridgeCreator: {
-      address: '0xAB50bd1C733a3c5F9897bC4dDbDfC5Ff06fc6981' as `0x{string}`
+      address: '0xCA81cc52f044554B87786060b7225D3481be1886' as `0x{string}`
     }
   }
 } as Chain & {
