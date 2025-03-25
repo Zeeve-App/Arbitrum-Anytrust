@@ -168,7 +168,7 @@ export async function rollup() {
             chainId: BigInt(chainId),
             owner: deployer.address,
             chainConfig,
-            confirmPeriodBlocks: BigInt(1),
+            confirmPeriodBlocks: BigInt(1800),
             sequencerInboxMaxTimeVariation: {
               delayBlocks: BigInt(34000),
               futureBlocks: BigInt(100),
