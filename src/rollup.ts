@@ -170,9 +170,9 @@ export async function rollup() {
             chainConfig,
             confirmPeriodBlocks: BigInt(1),
             sequencerInboxMaxTimeVariation: {
-              delayBlocks: BigInt(100),
+              delayBlocks: BigInt(34000),
               futureBlocks: BigInt(100),
-              delaySeconds: BigInt(3600),
+              delaySeconds: BigInt(86400),
               futureSeconds: BigInt(3600)
             }
           }
