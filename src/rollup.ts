@@ -123,6 +123,7 @@ export async function rollup() {
           {
             chainId: BigInt(chainId),
             owner: deployer.address,
+            baseStake: BigInt(10000000000000), // 0.00001 ETH
             chainConfig
           }
         ),
